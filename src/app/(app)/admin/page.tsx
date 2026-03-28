@@ -61,7 +61,7 @@ export default function AdminPage() {
     setUserSaving(true);
 
     if (editUser) {
-      await supabase.from("profiles").update({ name: userName, role: userRole } as any).eq("id", editUser.id);
+      await supabase.from("profiles").update({ name: userName, role: userRole }).eq("id", editUser.id);
     } else {
       if (!userPassword) return alert("Passwort ist erforderlich.");
       const { data, error } = await supabase.auth.admin.createUser({
