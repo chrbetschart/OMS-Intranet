@@ -6,12 +6,27 @@ import { formatDate, formatCHF, formatDateTime } from "@/lib/utils";
 import type { Rapport, RapportTechniker, RapportMaterial } from "@/types/database";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, FileDown, Printer } from "lucide-react";
+import { ArrowLeft, FileDown, Pencil } from "lucide-react";
 import SignatureCanvas from "@/components/rapporte/signature-canvas";
+
+const FAHRZEUG_RAYONS = [
+  { label: "Rayon 1 (inkl. Reisezeit)", beschreibung: "Bis 20km retour",  preis: 65  },
+  { label: "Rayon 2 (inkl. Reisezeit)", beschreibung: "Bis 40km retour",  preis: 95  },
+  { label: "Rayon 3 (inkl. Reisezeit)", beschreibung: "Bis 60km retour",  preis: 135 },
+  { label: "Rayon 4 (inkl. Reisezeit)", beschreibung: "Bis 90km retour",  preis: 180 },
+  { label: "Rayon 5 (inkl. Reisezeit)", beschreibung: "Bis 180km retour", preis: 270 },
+];
+
+const HILFSMITTEL_LISTE = [
+  { name: "Klein und Hilfsmaterial",        preis: 24.50 },
+  { name: "Bohrmaterial / Montagematerial",  preis: 24.50 },
+  { name: "Servicenotebook mit Lizenzen",    preis: 35.00 },
+  { name: "Messgerät mit Messlizenz",        preis: 35.00 },
+];
 
 const AUFTRAGSTYP_COLOR: Record<string, string> = {
   Abgeschlossen: "#22c55e",
-  Folgeauftrag: "#f59e0b",
+  Folgeauftrag:  "#f59e0b",
   Zusatzauftrag: "#3b82f6",
 };
 
@@ -24,6 +39,7 @@ export default function RapportDetailPage() {
   const [technikerRows, setTechnikerRows] = useState<RapportTechniker[]>([]);
   const [materialRows, setMaterialRows] = useState<RapportMaterial[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -41,17 +57,42 @@ export default function RapportDetailPage() {
     load();
   }, [params.id]);
 
-  function handlePrint() {
-    window.print();
+  async function handleDownloadPDF() {
+    if (!rapport) return;
+    setPdfLoading(true);
+    try {
+      const [{ pdf }, { RapportPDF }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("@/components/rapporte/rapport-pdf"),
+      ]);
+      const element = RapportPDF({ rapport, technikerRows, materialRows });
+      const blob = await pdf(element).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${rapport.rapport_nummer}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("PDF konnte nicht erstellt werden.");
+      console.error(e);
+    }
+    setPdfLoading(false);
   }
 
   if (loading) return <div className="p-8 text-center" style={{ color: "var(--muted-foreground)" }}>Wird geladen...</div>;
   if (!rapport) return <div className="p-8 text-center" style={{ color: "var(--muted-foreground)" }}>Rapport nicht gefunden.</div>;
 
+  const rayon = rapport.fahrzeug_rayon_index != null ? FAHRZEUG_RAYONS[rapport.fahrzeug_rayon_index] : null;
+  const hilfsmittelItems = (rapport.hilfsmittel_items || [])
+    .map((aktiv, i) => (aktiv ? HILFSMITTEL_LISTE[i] : null))
+    .filter((x): x is typeof HILFSMITTEL_LISTE[0] => x !== null);
+  const pureLabor = technikerRows.reduce((s, t) => s + Number(t.total), 0);
+
   return (
     <div className="p-6 md:p-8 max-w-4xl">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 print:hidden">
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Link href="/rapporte" className="flex items-center gap-1.5 text-sm" style={{ color: "var(--muted-foreground)" }}>
             <ArrowLeft size={15} /> Zurück
@@ -68,17 +109,26 @@ export default function RapportDetailPage() {
             {rapport.auftragstyp}
           </span>
         </div>
-        <button
-          onClick={handlePrint}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
-          style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--foreground)" }}
-        >
-          <Printer size={15} /> PDF / Drucken
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => router.push(`/rapporte/${rapport.id}/bearbeiten`)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
+            style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+          >
+            <Pencil size={14} /> Bearbeiten
+          </button>
+          <button
+            onClick={handleDownloadPDF}
+            disabled={pdfLoading}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-60"
+            style={{ background: "var(--primary)", color: "white" }}
+          >
+            <FileDown size={15} /> {pdfLoading ? "Generiert..." : "PDF"}
+          </button>
+        </div>
       </div>
 
-      {/* Print-friendly rapport */}
-      <div className="space-y-5 print:text-black print:bg-white">
+      <div className="space-y-5">
         {/* Kundendaten */}
         <Card title="Kundendaten">
           <Grid>
@@ -99,39 +149,59 @@ export default function RapportDetailPage() {
         )}
 
         {/* Arbeitsaufwand */}
-        <Card title="Arbeitsaufwand">
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                {["Techniker", "Stunden", "Stundensatz", "Total"].map((h) => (
-                  <th key={h} className="text-left pb-2 text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>{h}</th>
+        {technikerRows.length > 0 && (
+          <Card title="Arbeitsaufwand">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                  {["Techniker", "Stunden", "Stundensatz", "Total"].map(h => (
+                    <th key={h} className="text-left pb-2 text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {technikerRows.map(t => (
+                  <tr key={t.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                    <td className="py-2" style={{ color: "var(--foreground)" }}>{t.techniker_name}</td>
+                    <td className="py-2" style={{ color: "var(--foreground)" }}>{t.stunden}h</td>
+                    <td className="py-2" style={{ color: "var(--foreground)" }}>{formatCHF(t.stundensatz)}/h</td>
+                    <td className="py-2 font-medium" style={{ color: "var(--foreground)" }}>{formatCHF(Number(t.total))}</td>
+                  </tr>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {technikerRows.map((t) => (
-                <tr key={t.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td className="py-2" style={{ color: "var(--foreground)" }}>{t.techniker_name}</td>
-                  <td className="py-2" style={{ color: "var(--foreground)" }}>{t.stunden}h</td>
-                  <td className="py-2" style={{ color: "var(--foreground)" }}>{formatCHF(t.stundensatz)}/h</td>
-                  <td className="py-2 font-medium" style={{ color: "var(--foreground)" }}>{formatCHF(t.total)}</td>
-                </tr>
+              </tbody>
+            </table>
+          </Card>
+        )}
+
+        {/* Fahrzeugpauschale */}
+        {rayon && (
+          <Card title="Fahrzeugpauschale">
+            <div className="flex items-center justify-between text-sm">
+              <div>
+                <span style={{ color: "var(--foreground)" }}>{rayon.label}</span>
+                <span className="ml-2 text-xs" style={{ color: "var(--muted-foreground)" }}>{rayon.beschreibung}</span>
+                {rapport.fahrtzeit > 0 && (
+                  <span className="ml-3 text-xs" style={{ color: "var(--muted-foreground)" }}>Fahrtzeit: {rapport.fahrtzeit} Min.</span>
+                )}
+              </div>
+              <span className="font-medium" style={{ color: "var(--foreground)" }}>{formatCHF(rapport.fahrzeugpauschale)}</span>
+            </div>
+          </Card>
+        )}
+
+        {/* Hilfsmittel */}
+        {hilfsmittelItems.length > 0 && (
+          <Card title="Hilfsmittel">
+            <div className="space-y-2">
+              {hilfsmittelItems.map(h => (
+                <div key={h.name} className="flex items-center justify-between text-sm">
+                  <span style={{ color: "var(--foreground)" }}>{h.name}</span>
+                  <span style={{ color: "var(--foreground)" }}>{formatCHF(h.preis)}</span>
+                </div>
               ))}
-              {rapport.fahrzeugpauschale > 0 && (
-                <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td className="py-2" colSpan={3} style={{ color: "var(--muted-foreground)" }}>Fahrzeugpauschale</td>
-                  <td className="py-2" style={{ color: "var(--foreground)" }}>{formatCHF(rapport.fahrzeugpauschale)}</td>
-                </tr>
-              )}
-              {rapport.hilfsmittel > 0 && (
-                <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td className="py-2" colSpan={3} style={{ color: "var(--muted-foreground)" }}>Hilfsmittel</td>
-                  <td className="py-2" style={{ color: "var(--foreground)" }}>{formatCHF(rapport.hilfsmittel)}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </Card>
+            </div>
+          </Card>
+        )}
 
         {/* Material */}
         {materialRows.length > 0 && (
@@ -139,19 +209,19 @@ export default function RapportDetailPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                  {["Bezeichnung", "Menge", "Einheit", "Einzelpreis", "Total"].map((h) => (
+                  {["Anz.", "Typ", "Bezeichnung", "Einzelpreis", "Total"].map(h => (
                     <th key={h} className="text-left pb-2 text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {materialRows.map((m) => (
+                {materialRows.map(m => (
                   <tr key={m.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                    <td className="py-2" style={{ color: "var(--foreground)" }}>{m.bezeichnung}</td>
                     <td className="py-2" style={{ color: "var(--foreground)" }}>{m.menge}</td>
                     <td className="py-2" style={{ color: "var(--muted-foreground)" }}>{m.einheit}</td>
-                    <td className="py-2" style={{ color: "var(--foreground)" }}>{formatCHF(m.einzelpreis)}</td>
-                    <td className="py-2 font-medium" style={{ color: "var(--foreground)" }}>{formatCHF(m.total)}</td>
+                    <td className="py-2" style={{ color: "var(--foreground)" }}>{m.bezeichnung}</td>
+                    <td className="py-2" style={{ color: "var(--foreground)" }}>{formatCHF(Number(m.einzelpreis))}</td>
+                    <td className="py-2 font-medium" style={{ color: "var(--foreground)" }}>{formatCHF(Number(m.total))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -162,14 +232,30 @@ export default function RapportDetailPage() {
         {/* Kosten */}
         <Card title="Kostenübersicht">
           <div className="space-y-2 max-w-sm ml-auto">
-            <div className="flex justify-between text-sm">
-              <span style={{ color: "var(--muted-foreground)" }}>Arbeitsaufwand</span>
-              <span style={{ color: "var(--foreground)" }}>{formatCHF(rapport.total_arbeitsaufwand)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span style={{ color: "var(--muted-foreground)" }}>Material</span>
-              <span style={{ color: "var(--foreground)" }}>{formatCHF(rapport.total_material)}</span>
-            </div>
+            {pureLabor > 0 && (
+              <div className="flex justify-between text-sm">
+                <span style={{ color: "var(--muted-foreground)" }}>Arbeitsaufwand</span>
+                <span style={{ color: "var(--foreground)" }}>{formatCHF(pureLabor)}</span>
+              </div>
+            )}
+            {rapport.fahrzeugpauschale > 0 && (
+              <div className="flex justify-between text-sm">
+                <span style={{ color: "var(--muted-foreground)" }}>Fahrzeugpauschale</span>
+                <span style={{ color: "var(--foreground)" }}>{formatCHF(rapport.fahrzeugpauschale)}</span>
+              </div>
+            )}
+            {rapport.hilfsmittel > 0 && (
+              <div className="flex justify-between text-sm">
+                <span style={{ color: "var(--muted-foreground)" }}>Hilfsmittel</span>
+                <span style={{ color: "var(--foreground)" }}>{formatCHF(rapport.hilfsmittel)}</span>
+              </div>
+            )}
+            {rapport.total_material > 0 && (
+              <div className="flex justify-between text-sm">
+                <span style={{ color: "var(--muted-foreground)" }}>Material</span>
+                <span style={{ color: "var(--foreground)" }}>{formatCHF(rapport.total_material)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-base font-bold pt-2" style={{ borderTop: "1px solid var(--border)" }}>
               <span style={{ color: "var(--foreground)" }}>Total</span>
               <span style={{ color: "var(--primary)" }}>{formatCHF(rapport.total_gesamt)}</span>
@@ -200,7 +286,7 @@ export default function RapportDetailPage() {
         </Card>
       </div>
 
-      <p className="text-xs mt-4 print:hidden" style={{ color: "var(--muted-foreground)" }}>
+      <p className="text-xs mt-4" style={{ color: "var(--muted-foreground)" }}>
         Erstellt am {formatDateTime(rapport.created_at)}
       </p>
     </div>

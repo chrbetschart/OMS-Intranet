@@ -101,6 +101,9 @@ export interface Rapport {
   telefon: string;
   auftragstyp: AuftragTyp;
   notizen: string;
+  fahrtzeit: number;
+  fahrzeug_rayon_index: number | null;
+  hilfsmittel_items: boolean[] | null;
   fahrzeugpauschale: number;
   hilfsmittel: number;
   total_arbeitsaufwand: number;

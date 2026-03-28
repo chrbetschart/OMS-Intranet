@@ -11,13 +11,13 @@ import { Plus, Trash2 } from "lucide-react";
 
 // ── Feste Mitarbeiterliste ──────────────────────────────────────────
 const TECHNIKER_LISTE = [
-  { rolle: "Systemintegrator / Telematiker HF",       name: "Samuel Furrer",       stundensatz: 148 },
-  { rolle: "Systemintegrator / Telematiker HF",       name: "Michael Ruckstuhl",   stundensatz: 148 },
-  { rolle: "Systemintegrator / Systemtechniker HF",   name: "Christian Betschart", stundensatz: 148 },
-  { rolle: "Systemintegrator / Informatiktechniker HF", name: "Pirmin Albisser",   stundensatz: 165 },
-  { rolle: "Installateur / Techniker",                name: "Lukas Roschi",        stundensatz: 130 },
-  { rolle: "Lehrling 4. Lehrjahr",                    name: "Andrin Studer",       stundensatz: 80  },
-  { rolle: "Lehrling 1. Lehrjahr",                    name: "Stefan Nikolic",      stundensatz: 65  },
+  { rolle: "Systemintegrator / Telematiker HF",         name: "Samuel Furrer",       stundensatz: 148 },
+  { rolle: "Systemintegrator / Telematiker HF",         name: "Michael Ruckstuhl",   stundensatz: 148 },
+  { rolle: "Systemintegrator / Systemtechniker HF",     name: "Christian Betschart", stundensatz: 148 },
+  { rolle: "Systemintegrator / Informatiktechniker HF", name: "Pirmin Albisser",     stundensatz: 165 },
+  { rolle: "Installateur / Techniker",                  name: "Lukas Roschi",        stundensatz: 130 },
+  { rolle: "Lehrling 4. Lehrjahr",                      name: "Andrin Studer",       stundensatz: 80  },
+  { rolle: "Lehrling 1. Lehrjahr",                      name: "Stefan Nikolic",      stundensatz: 65  },
 ];
 
 // ── Fahrzeugpauschalen ──────────────────────────────────────────────
@@ -38,16 +38,13 @@ const HILFSMITTEL_LISTE = [
 ];
 
 const AUFTRAGSTYPEN = [
-  { label: "Folgeauftrag",        value: "Folgeauftrag"  },
+  { label: "Folgeauftrag",          value: "Folgeauftrag"  },
   { label: "Auftrag Abgeschlossen", value: "Abgeschlossen" },
-  { label: "Zusatzauftrag",       value: "Zusatzauftrag" },
+  { label: "Zusatzauftrag",         value: "Zusatzauftrag" },
 ] as const;
 
-interface TechnikerRow {
-  aktiv: boolean;
-  stunden: number;
-}
-
+interface TechnikerRow { aktiv: boolean; stunden: number; }
+interface HilfsmittelRow { aktiv: boolean; }
 interface MaterialRow {
   id: string;
   artikel_id: string | null;
@@ -58,11 +55,11 @@ interface MaterialRow {
   einzelpreis: number;
 }
 
-interface HilfsmittelRow {
-  aktiv: boolean;
+interface RapportFormProps {
+  editId?: string;
 }
 
-export function RapportForm() {
+export function RapportForm({ editId }: RapportFormProps = {}) {
   const { profile } = useAuth();
   const router = useRouter();
   const supabase = createClient();
@@ -82,8 +79,9 @@ export function RapportForm() {
     TECHNIKER_LISTE.map(() => ({ aktiv: false, stunden: 0 }))
   );
 
-  // Fahrzeug
+  // Fahrzeug + Fahrtzeit
   const [selectedRayon, setSelectedRayon] = useState<number | null>(null);
+  const [fahrtzeit, setFahrtzeit] = useState<number>(0);
 
   // Hilfsmittel
   const [hilfsmittelRows, setHilfsmittelRows] = useState<HilfsmittelRow[]>(
@@ -99,10 +97,62 @@ export function RapportForm() {
   const [technikerSig, setTechnikerSig] = useState<string | null>(null);
 
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(!!editId);
 
   useEffect(() => {
     supabase.from("artikel").select("*").eq("aktiv", true).then(({ data }) => setArtikel(data || []));
+    if (editId) loadExisting();
   }, []);
+
+  async function loadExisting() {
+    const [{ data: r }, { data: t }, { data: m }] = await Promise.all([
+      supabase.from("rapporte").select("*").eq("id", editId).single(),
+      supabase.from("rapport_techniker").select("*").eq("rapport_id", editId),
+      supabase.from("rapport_material").select("*").eq("rapport_id", editId),
+    ]);
+    if (!r) { setLoading(false); return; }
+
+    setDatum(r.datum);
+    setProjektNummer(r.projekt_nummer || "");
+    setKundenname(r.kundenname);
+    setAdresse(r.adresse || "");
+    setEmail(r.email || "");
+    setTelefon(r.telefon || "");
+    setAuftragstyp(r.auftragstyp);
+    setNotizen(r.notizen || "");
+    setFahrtzeit(r.fahrtzeit || 0);
+    setSelectedRayon(r.fahrzeug_rayon_index ?? null);
+    if (r.auftraggeber_unterschrift) setAuftraggeberSig(r.auftraggeber_unterschrift);
+    if (r.techniker_unterschrift) setTechnikerSig(r.techniker_unterschrift);
+
+    if (r.hilfsmittel_items && Array.isArray(r.hilfsmittel_items)) {
+      setHilfsmittelRows(HILFSMITTEL_LISTE.map((_, i) => ({ aktiv: !!(r.hilfsmittel_items as boolean[])[i] })));
+    }
+
+    if (t && t.length > 0) {
+      setTechnikerRows(TECHNIKER_LISTE.map(tech => {
+        const saved = t.find(row => row.techniker_name.includes(tech.name));
+        return { aktiv: !!saved, stunden: saved ? Number(saved.stunden) : 0 };
+      }));
+    }
+
+    if (m && m.length > 0) {
+      setMaterial(m.map(row => {
+        const parts = row.bezeichnung.split(" – ");
+        return {
+          id: row.id,
+          artikel_id: row.artikel_id,
+          anz: Number(row.menge),
+          typ: row.einheit || "",
+          marke: parts.length > 1 ? parts[0] : "",
+          beschreibung: parts.length > 1 ? parts.slice(1).join(" – ") : row.bezeichnung,
+          einzelpreis: Number(row.einzelpreis),
+        };
+      }));
+    }
+
+    setLoading(false);
+  }
 
   // ── Berechnungen ─────────────────────────────────────────────────
   const totalArbeitsaufwand = technikerRows.reduce((s, row, i) =>
@@ -146,10 +196,7 @@ export function RapportForm() {
     if (!kundenname) return alert("Kundenname ist erforderlich.");
     setSaving(true);
 
-    const rapportNummer = `R-${Date.now()}`.slice(0, 12);
-
-    const { data: rapport, error } = await supabase.from("rapporte").insert({
-      rapport_nummer: rapportNummer,
+    const payload = {
       datum,
       projekt_nummer: projektNummer,
       kundenname,
@@ -158,6 +205,9 @@ export function RapportForm() {
       telefon,
       auftragstyp,
       notizen,
+      fahrtzeit,
+      fahrzeug_rayon_index: selectedRayon,
+      hilfsmittel_items: hilfsmittelRows.map(r => r.aktiv),
       fahrzeugpauschale: fahrzeugTotal,
       hilfsmittel: hilfsmittelTotal,
       total_arbeitsaufwand: totalArbeitsaufwand + fahrzeugTotal + hilfsmittelTotal,
@@ -165,25 +215,38 @@ export function RapportForm() {
       total_gesamt: totalGesamt,
       auftraggeber_unterschrift: auftraggeberSig,
       techniker_unterschrift: technikerSig,
-      erstellt_von: profile!.id,
       abgeschlossen: auftragstyp === "Abgeschlossen",
-    }).select().single();
+    };
 
-    if (error || !rapport) {
-      alert("Fehler beim Speichern: " + error?.message);
-      setSaving(false);
-      return;
+    let rapportId: string;
+
+    if (editId) {
+      const { error } = await supabase.from("rapporte").update(payload).eq("id", editId);
+      if (error) { alert("Fehler beim Speichern: " + error.message); setSaving(false); return; }
+      rapportId = editId;
+      await Promise.all([
+        supabase.from("rapport_techniker").delete().eq("rapport_id", editId),
+        supabase.from("rapport_material").delete().eq("rapport_id", editId),
+      ]);
+    } else {
+      const rapportNummer = `R-${Date.now()}`.slice(0, 12);
+      const { data: rapport, error } = await supabase.from("rapporte").insert({
+        ...payload,
+        rapport_nummer: rapportNummer,
+        erstellt_von: profile!.id,
+      }).select().single();
+      if (error || !rapport) { alert("Fehler beim Speichern: " + error?.message); setSaving(false); return; }
+      rapportId = rapport.id;
     }
 
     // Techniker speichern
     const aktiveTechniker = technikerRows
       .map((r, i) => ({ ...r, ...TECHNIKER_LISTE[i] }))
       .filter(r => r.aktiv && r.stunden > 0);
-
     if (aktiveTechniker.length > 0) {
       await supabase.from("rapport_techniker").insert(
         aktiveTechniker.map(t => ({
-          rapport_id: rapport.id,
+          rapport_id: rapportId,
           techniker_name: `${t.rolle} – ${t.name}`,
           stunden: t.stunden,
           stundensatz: t.stundensatz,
@@ -196,7 +259,7 @@ export function RapportForm() {
     if (material.length > 0) {
       await supabase.from("rapport_material").insert(
         material.map(m => ({
-          rapport_id: rapport.id,
+          rapport_id: rapportId,
           artikel_id: m.artikel_id,
           bezeichnung: [m.marke, m.beschreibung].filter(Boolean).join(" – "),
           menge: m.anz,
@@ -205,14 +268,19 @@ export function RapportForm() {
           total: m.anz * m.einzelpreis,
         }))
       );
-
-      // Lagerbestand abbuchen
-      for (const m of material.filter(m => m.artikel_id)) {
-        await supabase.rpc("decrement_bestand", { p_artikel_id: m.artikel_id, p_menge: m.anz });
+      // Bestand nur bei Neuanlage abbuchen
+      if (!editId) {
+        for (const m of material.filter(m => m.artikel_id)) {
+          await supabase.rpc("decrement_bestand", { p_artikel_id: m.artikel_id, p_menge: m.anz });
+        }
       }
     }
 
-    router.push(`/rapporte/${rapport.id}`);
+    router.push(`/rapporte/${rapportId}`);
+  }
+
+  if (loading) {
+    return <div className="p-12 text-center text-sm" style={{ color: "var(--muted-foreground)" }}>Wird geladen...</div>;
   }
 
   return (
@@ -386,6 +454,23 @@ export function RapportForm() {
               </tr>
             </tbody>
           </table>
+
+          {/* Fahrtzeit */}
+          {selectedRayon !== null && (
+            <div className="mt-3 flex items-center gap-3">
+              <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>Fahrtzeit (Min.)</label>
+              <input
+                type="number"
+                min={0}
+                step={5}
+                value={fahrtzeit}
+                onChange={e => setFahrtzeit(parseInt(e.target.value) || 0)}
+                className={ic}
+                style={{ ...is, width: "100px" }}
+                placeholder="0"
+              />
+            </div>
+          )}
         </div>
 
         {/* Hilfsmittel */}
@@ -426,11 +511,11 @@ export function RapportForm() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div>
             <p className="text-sm font-medium mb-2" style={{ color: "var(--muted-foreground)" }}>Auftraggeber</p>
-            <SignatureCanvas onSave={setAuftraggeberSig} />
+            <SignatureCanvas key={loading ? "load" : "ready-ag"} initialValue={auftraggeberSig} onSave={setAuftraggeberSig} />
           </div>
           <div>
             <p className="text-sm font-medium mb-2" style={{ color: "var(--muted-foreground)" }}>Techniker</p>
-            <SignatureCanvas onSave={setTechnikerSig} />
+            <SignatureCanvas key={loading ? "load" : "ready-tk"} initialValue={technikerSig} onSave={setTechnikerSig} />
           </div>
         </div>
       </Section>
@@ -441,7 +526,7 @@ export function RapportForm() {
           Abbrechen
         </button>
         <button onClick={handleSave} disabled={saving} className="px-6 py-2 rounded-lg text-sm font-semibold disabled:opacity-50" style={{ background: "var(--primary)", color: "white" }}>
-          {saving ? "Wird gespeichert..." : "Rapport speichern"}
+          {saving ? "Wird gespeichert..." : editId ? "Änderungen speichern" : "Rapport speichern"}
         </button>
       </div>
     </div>
