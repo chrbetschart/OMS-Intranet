@@ -149,6 +149,7 @@ export interface Artikel {
   bestand: number;
   mindestbestand: number;
   einheit: string;
+  bild_url: string | null;
   aktiv: boolean;
   created_at: string;
   updated_at: string;
@@ -158,6 +159,7 @@ export interface Kategorie {
   id: string;
   name: string;
   farbe: string;
+  bild_url: string | null;
   created_at: string;
 }
 

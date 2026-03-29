@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Artikel, Kategorie } from "@/types/database";
-import { X, Trash2 } from "lucide-react";
+import { X, Trash2, ImagePlus } from "lucide-react";
 
 interface Props {
   artikel: Artikel | null;
@@ -12,9 +12,18 @@ interface Props {
   onSaved: () => void;
 }
 
+async function uploadBild(supabase: ReturnType<typeof createClient>, file: File, prefix: string): Promise<string | null> {
+  const ext = file.name.split(".").pop();
+  const path = `${prefix}/${Date.now()}.${ext}`;
+  const { data, error } = await supabase.storage.from("bilder").upload(path, file, { upsert: true });
+  if (error || !data) return null;
+  return supabase.storage.from("bilder").getPublicUrl(data.path).data.publicUrl;
+}
+
 export function ArtikelModal({ artikel, kategorien, onClose, onSaved }: Props) {
   const supabase = createClient();
   const isEdit = !!artikel;
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState(artikel?.name || "");
   const [typ, setTyp] = useState(artikel?.typ || "");
@@ -26,7 +35,18 @@ export function ArtikelModal({ artikel, kategorien, onClose, onSaved }: Props) {
   const [bestand, setBestand] = useState(artikel?.bestand || 0);
   const [mindestbestand, setMindestbestand] = useState(artikel?.mindestbestand || 0);
   const [einheit, setEinheit] = useState(artikel?.einheit || "Stk.");
+  const [bildUrl, setBildUrl] = useState<string | null>(artikel?.bild_url || null);
+  const [bildUploading, setBildUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  async function handleBildUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBildUploading(true);
+    const url = await uploadBild(supabase, file, "artikel");
+    if (url) setBildUrl(url);
+    setBildUploading(false);
+  }
 
   async function handleSave() {
     if (!name) return alert("Name ist erforderlich.");
@@ -36,6 +56,7 @@ export function ArtikelModal({ artikel, kategorien, onClose, onSaved }: Props) {
       name, typ, marke, artikelnummer,
       kategorie_id: kategorieId || null,
       verkaufspreis, einkaufspreis, bestand, mindestbestand, einheit,
+      bild_url: bildUrl,
     };
 
     if (isEdit) {
@@ -69,6 +90,38 @@ export function ArtikelModal({ artikel, kategorien, onClose, onSaved }: Props) {
 
         {/* Body */}
         <div className="p-5 space-y-4 overflow-y-auto max-h-[70vh]">
+          {/* Bild */}
+          <div>
+            <label className="block text-xs font-medium mb-2" style={{ color: "var(--muted-foreground)" }}>Produktbild</label>
+            <div className="flex items-center gap-4">
+              {bildUrl ? (
+                <div className="relative">
+                  <img src={bildUrl} alt="Vorschau" className="w-20 h-20 rounded-lg object-cover" />
+                  <button
+                    onClick={() => setBildUrl(null)}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-xs"
+                    style={{ background: "var(--destructive)", color: "white" }}
+                  >×</button>
+                </div>
+              ) : (
+                <div
+                  className="w-20 h-20 rounded-lg flex flex-col items-center justify-center cursor-pointer border-2 border-dashed"
+                  style={{ borderColor: "var(--border)", color: "var(--muted-foreground)" }}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <ImagePlus size={22} />
+                  <span className="text-xs mt-1">{bildUploading ? "..." : "Hochladen"}</span>
+                </div>
+              )}
+              {bildUrl && (
+                <button onClick={() => fileRef.current?.click()} className="text-xs" style={{ color: "var(--primary)" }}>
+                  {bildUploading ? "Wird hochgeladen..." : "Bild ändern"}
+                </button>
+              )}
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleBildUpload} />
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <Field label="Name *" colSpan>
               <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} style={inputStyle} placeholder="Produktname" />
@@ -117,7 +170,7 @@ export function ArtikelModal({ artikel, kategorien, onClose, onSaved }: Props) {
             <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm" style={{ background: "var(--secondary)", border: "1px solid var(--border)", color: "var(--foreground)" }}>
               Abbrechen
             </button>
-            <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50" style={{ background: "var(--primary)", color: "white" }}>
+            <button onClick={handleSave} disabled={saving || bildUploading} className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50" style={{ background: "var(--primary)", color: "white" }}>
               {saving ? "Speichern..." : "Speichern"}
             </button>
           </div>

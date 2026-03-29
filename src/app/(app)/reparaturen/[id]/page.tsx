@@ -7,7 +7,7 @@ import { formatDate, formatDateTime, formatCHF, daysBetween } from "@/lib/utils"
 import type { Reparatur, ReparaturVerlauf, ReparaturStatus } from "@/types/database";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, AlertTriangle, Printer } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Printer, Pencil } from "lucide-react";
 
 const STATUSES: ReparaturStatus[] = ["Offen", "In Bearbeitung", "Warte auf Teile", "Beim Lieferanten", "Abgeschlossen"];
 const STATUS_COLOR: Record<string, string> = {
@@ -85,9 +85,14 @@ export default function ReparaturDetailPage() {
             {reparatur.status}
           </span>
         </div>
-        <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm" style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--foreground)" }}>
-          <Printer size={15} /> Begleitschein
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => router.push(`/reparaturen/${reparatur.id}/bearbeiten`)} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium" style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--foreground)" }}>
+            <Pencil size={14} /> Bearbeiten
+          </button>
+          <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm" style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--foreground)" }}>
+            <Printer size={15} /> Begleitschein
+          </button>
+        </div>
       </div>
 
       {(warn || critical) && (

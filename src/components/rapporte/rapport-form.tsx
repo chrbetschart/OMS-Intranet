@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { formatCHF } from "@/lib/utils";
 import type { Artikel } from "@/types/database";
 import SignatureCanvas from "./signature-canvas";
+import { ArtikelPicker } from "./artikel-picker";
 import { Plus, Trash2 } from "lucide-react";
 
 // ── Feste Mitarbeiterliste ──────────────────────────────────────────
@@ -91,6 +92,8 @@ export function RapportForm({ editId }: RapportFormProps = {}) {
   // Material
   const [material, setMaterial] = useState<MaterialRow[]>([]);
   const [artikel, setArtikel] = useState<Artikel[]>([]);
+  const [kategorien, setKategorien] = useState<import("@/types/database").Kategorie[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   // Unterschriften
   const [auftraggeberSig, setAuftraggeberSig] = useState<string | null>(null);
@@ -101,6 +104,7 @@ export function RapportForm({ editId }: RapportFormProps = {}) {
 
   useEffect(() => {
     supabase.from("artikel").select("*").eq("aktiv", true).then(({ data }) => setArtikel(data || []));
+    supabase.from("kategorien").select("*").order("name").then(({ data }) => setKategorien(data || []));
     if (editId) loadExisting();
   }, []);
 
@@ -174,8 +178,16 @@ export function RapportForm({ editId }: RapportFormProps = {}) {
   }
 
   // ── Material helpers ─────────────────────────────────────────────
-  function addMaterial() {
+  function addMaterialFromArtikel(a: import("@/types/database").Artikel) {
+    setMaterial([...material, { id: crypto.randomUUID(), artikel_id: a.id, anz: 1, typ: a.typ, marke: a.marke, beschreibung: a.name, einzelpreis: a.verkaufspreis }]);
+    setPickerOpen(false);
+  }
+  function addMaterialManual() {
     setMaterial([...material, { id: crypto.randomUUID(), artikel_id: null, anz: 1, typ: "", marke: "", beschreibung: "", einzelpreis: 0 }]);
+    setPickerOpen(false);
+  }
+  function addMaterial() {
+    setPickerOpen(true);
   }
   function removeMaterial(id: string) {
     setMaterial(material.filter(m => m.id !== id));
@@ -519,6 +531,17 @@ export function RapportForm({ editId }: RapportFormProps = {}) {
           </div>
         </div>
       </Section>
+
+      {/* Artikel Picker */}
+      {pickerOpen && (
+        <ArtikelPicker
+          artikel={artikel}
+          kategorien={kategorien}
+          onSelect={addMaterialFromArtikel}
+          onManual={addMaterialManual}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
 
       {/* Buttons */}
       <div className="flex justify-end gap-3 pt-2">

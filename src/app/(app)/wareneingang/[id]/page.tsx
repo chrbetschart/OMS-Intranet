@@ -6,7 +6,8 @@ import { formatDate } from "@/lib/utils";
 import type { Wareneingang, WareneingangPosition } from "@/types/database";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Pencil } from "lucide-react";
 
 const STATUS_COLOR: Record<string, string> = {
   Ausstehend: "#f59e0b",
@@ -20,6 +21,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default function WareneingangDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const supabase = createClient();
   const [we, setWe] = useState<Wareneingang | null>(null);
   const [positionen, setPositionen] = useState<WareneingangPosition[]>([]);
@@ -42,15 +44,24 @@ export default function WareneingangDetailPage() {
 
   return (
     <div className="p-6 md:p-8 max-w-4xl">
-      <div className="flex items-center gap-3 mb-6">
-        <Link href="/wareneingang" className="flex items-center gap-1.5 text-sm" style={{ color: "var(--muted-foreground)" }}>
-          <ArrowLeft size={15} /> Zurück
-        </Link>
-        <span style={{ color: "var(--border)" }}>|</span>
-        <h1 className="text-xl font-bold" style={{ color: "var(--foreground)" }}>{we.eingangs_nummer}</h1>
-        <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: STATUS_COLOR[we.status] + "22", color: STATUS_COLOR[we.status] }}>
-          {we.status}
-        </span>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Link href="/wareneingang" className="flex items-center gap-1.5 text-sm" style={{ color: "var(--muted-foreground)" }}>
+            <ArrowLeft size={15} /> Zurück
+          </Link>
+          <span style={{ color: "var(--border)" }}>|</span>
+          <h1 className="text-xl font-bold" style={{ color: "var(--foreground)" }}>{we.eingangs_nummer}</h1>
+          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: STATUS_COLOR[we.status] + "22", color: STATUS_COLOR[we.status] }}>
+            {we.status}
+          </span>
+        </div>
+        <button
+          onClick={() => router.push(`/wareneingang/${we.id}/bearbeiten`)}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
+          style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+        >
+          <Pencil size={14} /> Bearbeiten
+        </button>
       </div>
 
       <div className="space-y-5">

@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import type { Profile, Kategorie } from "@/types/database";
-import { Plus, Edit2, Trash2, X } from "lucide-react";
+import { Plus, Edit2, Trash2, X, ImagePlus } from "lucide-react";
+import { useRef } from "react";
 
 export default function AdminPage() {
   const { isAdmin } = useAuth();
@@ -30,7 +31,10 @@ export default function AdminPage() {
   const [editKat, setEditKat] = useState<Kategorie | null>(null);
   const [katName, setKatName] = useState("");
   const [katFarbe, setKatFarbe] = useState("#3b82f6");
+  const [katBildUrl, setKatBildUrl] = useState<string | null>(null);
+  const [katBildUploading, setKatBildUploading] = useState(false);
   const [katSaving, setKatSaving] = useState(false);
+  const katFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isAdmin) { router.push("/"); return; }
@@ -84,16 +88,29 @@ export default function AdminPage() {
     loadAll();
   }
 
-  function openNewKat() { setEditKat(null); setKatName(""); setKatFarbe("#3b82f6"); setKatModal(true); }
-  function openEditKat(k: Kategorie) { setEditKat(k); setKatName(k.name); setKatFarbe(k.farbe); setKatModal(true); }
+  async function handleKatBildUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setKatBildUploading(true);
+    const ext = file.name.split(".").pop();
+    const path = `kategorien/${Date.now()}.${ext}`;
+    const { data, error } = await supabase.storage.from("bilder").upload(path, file, { upsert: true });
+    if (!error && data) {
+      setKatBildUrl(supabase.storage.from("bilder").getPublicUrl(data.path).data.publicUrl);
+    }
+    setKatBildUploading(false);
+  }
+
+  function openNewKat() { setEditKat(null); setKatName(""); setKatFarbe("#3b82f6"); setKatBildUrl(null); setKatModal(true); }
+  function openEditKat(k: Kategorie) { setEditKat(k); setKatName(k.name); setKatFarbe(k.farbe); setKatBildUrl(k.bild_url || null); setKatModal(true); }
 
   async function saveKat() {
     if (!katName) return alert("Name ist erforderlich.");
     setKatSaving(true);
     if (editKat) {
-      await supabase.from("kategorien").update({ name: katName, farbe: katFarbe }).eq("id", editKat.id);
+      await supabase.from("kategorien").update({ name: katName, farbe: katFarbe, bild_url: katBildUrl }).eq("id", editKat.id);
     } else {
-      await supabase.from("kategorien").insert({ name: katName, farbe: katFarbe });
+      await supabase.from("kategorien").insert({ name: katName, farbe: katFarbe, bild_url: katBildUrl });
     }
     setKatSaving(false);
     setKatModal(false);
@@ -242,8 +259,25 @@ export default function AdminPage() {
                 <input value={katFarbe} onChange={(e) => setKatFarbe(e.target.value)} className={ic} style={is} placeholder="#3b82f6" />
               </div>
             </MField>
+            <MField label="Bild">
+              <div className="flex items-center gap-3">
+                {katBildUrl ? (
+                  <div className="relative">
+                    <img src={katBildUrl} alt="Vorschau" className="w-16 h-16 rounded-lg object-cover" />
+                    <button onClick={() => setKatBildUrl(null)} className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs" style={{ background: "var(--destructive)", color: "white" }}>×</button>
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 rounded-lg flex flex-col items-center justify-center cursor-pointer border-2 border-dashed" style={{ borderColor: "var(--border)", color: "var(--muted-foreground)" }} onClick={() => katFileRef.current?.click()}>
+                    <ImagePlus size={18} />
+                    <span className="text-xs mt-0.5">{katBildUploading ? "..." : "Upload"}</span>
+                  </div>
+                )}
+                {katBildUrl && <button onClick={() => katFileRef.current?.click()} className="text-xs" style={{ color: "var(--primary)" }}>{katBildUploading ? "Wird hochgeladen..." : "Ändern"}</button>}
+                <input ref={katFileRef} type="file" accept="image/*" className="hidden" onChange={handleKatBildUpload} />
+              </div>
+            </MField>
           </div>
-          <ModalFooter onClose={() => setKatModal(false)} onSave={saveKat} saving={katSaving} />
+          <ModalFooter onClose={() => setKatModal(false)} onSave={saveKat} saving={katSaving || katBildUploading} />
         </Modal>
       )}
     </div>
