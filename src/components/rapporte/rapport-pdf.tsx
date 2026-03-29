@@ -137,8 +137,8 @@ export function RapportPDF({ rapport, technikerRows, materialRows, logoBase64 }:
         <View style={s.headerArea}>
           <View style={s.companyBlock}>
             <Text style={s.companyName}>Ottiger Media Systeme AG</Text>
-            <Text style={s.companyInfo}>Wernlisbach 1  |  4914 Roggwil</Text>
-            <Text style={s.companyInfo}>info@oms-swiss.com  |  www.oms-swiss.com</Text>
+            <Text style={s.companyInfo}>Allmendstrasse 10  |  6210 Sursee</Text>
+            <Text style={s.companyInfo}>info@ottigermedia.ch  |  www.ottigermedia.ch</Text>
           </View>
           <View style={s.docBlock}>
             {logoBase64 ? (
@@ -356,7 +356,7 @@ export function RapportPDF({ rapport, technikerRows, materialRows, logoBase64 }:
 
         {/* ── Footer (fixed) ── */}
         <View style={s.footer} fixed>
-          <Text style={s.footerTxt}>Ottiger Media Systeme AG  |  Wernlisbach 1, 4914 Roggwil</Text>
+          <Text style={s.footerTxt}>Ottiger Media Systeme AG  |  Allmendstrasse 10, 6210 Sursee</Text>
           <Text style={s.footerTxt}>
             <Text style={s.footerAccent}>{rapport.rapport_nummer}</Text>
             {"  |  "}{fmtDate(rapport.datum)}
