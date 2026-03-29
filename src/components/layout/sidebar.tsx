@@ -81,9 +81,9 @@ export function Sidebar() {
         style={{ borderBottom: "1px solid var(--border)", minHeight: "60px" }}
       >
         {collapsed ? (
-          <img src="/oms-logo.png" alt="OMS" className="w-8 h-8 object-contain" />
+          <img src="/logo_ottiger_media_systeme_rgb.jpg" alt="OMS" className="w-8 h-8 object-contain" />
         ) : (
-          <img src="/oms-logo.png" alt="Ottiger Media Systeme" className="h-9 object-contain" style={{ maxWidth: "160px" }} />
+          <img src="/logo_ottiger_media_systeme_rgb.jpg" alt="Ottiger Media Systeme" className="h-9 object-contain" style={{ maxWidth: "160px" }} />
         )}
       </div>
 

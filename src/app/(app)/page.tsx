@@ -73,7 +73,7 @@ export default function DashboardPage() {
             Ottiger Media Systeme AG — Internes System
           </p>
         </div>
-        <img src="/oms-logo.png" alt="OMS" className="h-10 object-contain opacity-80" />
+        <img src="/logo_ottiger_media_systeme_rgb.jpg" alt="OMS" className="h-10 object-contain opacity-80" />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
