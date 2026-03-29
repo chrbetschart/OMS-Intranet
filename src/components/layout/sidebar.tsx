@@ -77,24 +77,13 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div
-        className="flex items-center gap-3 px-4 py-4 shrink-0"
-        style={{ borderBottom: "1px solid var(--border)" }}
+        className="flex items-center justify-center px-3 py-3 shrink-0"
+        style={{ borderBottom: "1px solid var(--border)", minHeight: "60px" }}
       >
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: "var(--primary)" }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-            <path d="M2 17l10 5 10-5"/>
-            <path d="M2 12l10 5 10-5"/>
-          </svg>
-        </div>
-        {!collapsed && (
-          <div className="overflow-hidden">
-            <p className="text-sm font-bold leading-none" style={{ color: "var(--foreground)" }}>OMS</p>
-            <p className="text-xs mt-0.5 truncate" style={{ color: "var(--muted-foreground)" }}>Intranet</p>
-          </div>
+        {collapsed ? (
+          <img src="/oms-logo.png" alt="OMS" className="w-8 h-8 object-contain" />
+        ) : (
+          <img src="/oms-logo.png" alt="Ottiger Media Systeme" className="h-9 object-contain" style={{ maxWidth: "160px" }} />
         )}
       </div>
 

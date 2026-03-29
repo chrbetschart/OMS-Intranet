@@ -12,6 +12,7 @@ interface Position {
   db_id?: string;
   artikel_id: string | null;
   bezeichnung: string;
+  lieferant: string;
   bestellt: number;
   erhalten: number;
   einheit: string;
@@ -27,10 +28,10 @@ export default function WareneingangBearbeitenPage() {
 
   const [loading, setLoading] = useState(true);
   const [projekt, setProjekt] = useState("");
-  const [lieferant, setLieferant] = useState("");
   const [lieferscheinNr, setLieferscheinNr] = useState("");
   const [datum, setDatum] = useState("");
   const [notizen, setNotizen] = useState("");
+  // lieferant is derived from positions on save
   const [positionen, setPositionen] = useState<Position[]>([]);
   const [artikel, setArtikel] = useState<Artikel[]>([]);
   const [saving, setSaving] = useState(false);
@@ -44,7 +45,6 @@ export default function WareneingangBearbeitenPage() {
       ]);
       if (w) {
         setProjekt(w.projekt || "");
-        setLieferant(w.lieferant);
         setLieferscheinNr(w.lieferschein_nummer || "");
         setDatum(w.datum);
         setNotizen(w.notizen || "");
@@ -54,6 +54,7 @@ export default function WareneingangBearbeitenPage() {
         db_id: row.id,
         artikel_id: row.artikel_id,
         bezeichnung: row.bezeichnung,
+        lieferant: row.lieferant || "",
         bestellt: Number(row.bestellt),
         erhalten: Number(row.erhalten),
         einheit: row.einheit,
@@ -67,7 +68,7 @@ export default function WareneingangBearbeitenPage() {
   }, [id]);
 
   function addPosition() {
-    setPositionen([...positionen, { id: crypto.randomUUID(), artikel_id: null, bezeichnung: "", bestellt: 1, erhalten: 0, einheit: "Stk.", status: "Fehlt", notiz: "" }]);
+    setPositionen([...positionen, { id: crypto.randomUUID(), artikel_id: null, bezeichnung: "", lieferant: "", bestellt: 1, erhalten: 0, einheit: "Stk.", status: "Fehlt", notiz: "" }]);
   }
   function removePosition(pid: string) {
     setPositionen(positionen.filter((p) => p.id !== pid));
@@ -97,8 +98,8 @@ export default function WareneingangBearbeitenPage() {
   }
 
   async function handleSave() {
-    if (!lieferant) return alert("Lieferant ist erforderlich.");
     setSaving(true);
+    const lieferant = [...new Set(positionen.map((p) => p.lieferant).filter(Boolean))].join(", ") || "Diverse";
 
     await supabase.from("wareneingaenge").update({
       projekt,
@@ -117,6 +118,7 @@ export default function WareneingangBearbeitenPage() {
           wareneingang_id: id,
           artikel_id: p.artikel_id,
           bezeichnung: p.bezeichnung,
+          lieferant: p.lieferant || "",
           bestellt: p.bestellt,
           erhalten: p.erhalten,
           einheit: p.einheit,
@@ -155,10 +157,6 @@ export default function WareneingangBearbeitenPage() {
               <input value={projekt} onChange={(e) => setProjekt(e.target.value)} className={ic} style={is} />
             </div>
             <div>
-              <label className={lc} style={{ color: "var(--muted-foreground)" }}>Lieferant *</label>
-              <input value={lieferant} onChange={(e) => setLieferant(e.target.value)} className={ic} style={is} />
-            </div>
-            <div>
               <label className={lc} style={{ color: "var(--muted-foreground)" }}>Lieferschein-Nummer</label>
               <input value={lieferscheinNr} onChange={(e) => setLieferscheinNr(e.target.value)} className={ic} style={is} />
             </div>
@@ -184,7 +182,7 @@ export default function WareneingangBearbeitenPage() {
               <table className="w-full text-sm min-w-[700px]">
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                    {["Artikel / Bezeichnung", "Bestellt", "Erhalten", "Einheit", "Status", "Notiz", ""].map((h) => (
+                    {["Artikel / Bezeichnung", "Lieferant", "Bestellt", "Erhalten", "Einheit", "Status", "Notiz", ""].map((h) => (
                       <th key={h} className="text-left pb-2 text-xs font-medium pr-2" style={{ color: "var(--muted-foreground)" }}>{h}</th>
                     ))}
                   </tr>
@@ -203,6 +201,7 @@ export default function WareneingangBearbeitenPage() {
                             <input value={p.bezeichnung} onChange={(e) => updatePosition(p.id, "bezeichnung", e.target.value)} className={`${ic} mt-1`} style={is} placeholder="Bezeichnung" />
                           )}
                         </td>
+                        <td className="py-2 pr-2"><input value={p.lieferant} onChange={(e) => updatePosition(p.id, "lieferant", e.target.value)} className={ic} style={{ ...is, width: "110px" }} placeholder="Lieferant" /></td>
                         <td className="py-2 pr-2"><input type="number" min={0} value={p.bestellt} onChange={(e) => updatePosition(p.id, "bestellt", parseFloat(e.target.value) || 0)} className={ic} style={{ ...is, width: "70px" }} /></td>
                         <td className="py-2 pr-2"><input type="number" min={0} value={p.erhalten} onChange={(e) => updatePosition(p.id, "erhalten", parseFloat(e.target.value) || 0)} className={ic} style={{ ...is, width: "70px" }} /></td>
                         <td className="py-2 pr-2"><input value={p.einheit} onChange={(e) => updatePosition(p.id, "einheit", e.target.value)} className={ic} style={{ ...is, width: "60px" }} /></td>

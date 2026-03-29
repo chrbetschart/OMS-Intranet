@@ -12,6 +12,7 @@ interface Position {
   id: string;
   artikel_id: string | null;
   bezeichnung: string;
+  lieferant: string;
   bestellt: number;
   erhalten: number;
   einheit: string;
@@ -25,7 +26,6 @@ export default function NeuerWareneingangPage() {
   const supabase = createClient();
 
   const [projekt, setProjekt] = useState("");
-  const [lieferant, setLieferant] = useState("");
   const [lieferscheinNr, setLieferscheinNr] = useState("");
   const [datum, setDatum] = useState(new Date().toISOString().slice(0, 10));
   const [notizen, setNotizen] = useState("");
@@ -48,7 +48,7 @@ export default function NeuerWareneingangPage() {
   }, []);
 
   function addPosition() {
-    setPositionen([...positionen, { id: crypto.randomUUID(), artikel_id: null, bezeichnung: "", bestellt: 1, erhalten: 0, einheit: "Stk.", status: "Fehlt", notiz: "" }]);
+    setPositionen([...positionen, { id: crypto.randomUUID(), artikel_id: null, bezeichnung: "", lieferant: "", bestellt: 1, erhalten: 0, einheit: "Stk.", status: "Fehlt", notiz: "" }]);
   }
 
   function removePosition(id: string) {
@@ -79,6 +79,7 @@ export default function NeuerWareneingangPage() {
         id: crypto.randomUUID(),
         artikel_id: null,
         bezeichnung: parts[0] || "Unbekannt",
+        lieferant: parts[3] || "",
         bestellt: parseFloat(parts[1]) || 1,
         erhalten: 0,
         einheit: parts[2] || "Stk.",
@@ -96,6 +97,7 @@ export default function NeuerWareneingangPage() {
       id: crypto.randomUUID(),
       artikel_id: null,
       bezeichnung: p.bezeichnung,
+      lieferant: "",
       bestellt: 1,
       erhalten: 0,
       einheit: p.einheit,
@@ -119,11 +121,13 @@ export default function NeuerWareneingangPage() {
 
     const eingangsNummer = `WE-${Date.now()}`.slice(0, 13);
     const status = berechneGesamtstatus();
+    // Derive lieferant from positions (join unique suppliers)
+    const lieferantenListe = [...new Set(positionen.map((p) => p.lieferant).filter(Boolean))].join(", ") || "Diverse";
 
     const { data: we } = await supabase.from("wareneingaenge").insert({
       eingangs_nummer: eingangsNummer,
       projekt,
-      lieferant,
+      lieferant: lieferantenListe,
       lieferschein_nummer: lieferscheinNr,
       datum,
       status,
@@ -137,6 +141,7 @@ export default function NeuerWareneingangPage() {
           wareneingang_id: we.id,
           artikel_id: p.artikel_id,
           bezeichnung: p.bezeichnung,
+          lieferant: p.lieferant || "",
           bestellt: p.bestellt,
           erhalten: p.erhalten,
           einheit: p.einheit,
@@ -187,12 +192,8 @@ export default function NeuerWareneingangPage() {
         <Card title="Lieferungsdaten">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={lc} style={{ color: "var(--muted-foreground)" }}>Projekt</label>
+              <label className={lc} style={{ color: "var(--muted-foreground)" }}>Projekt / Bestellnummer</label>
               <input value={projekt} onChange={(e) => setProjekt(e.target.value)} className={ic} style={is} placeholder="z.B. P-2024-001" />
-            </div>
-            <div>
-              <label className={lc} style={{ color: "var(--muted-foreground)" }}>Lieferant *</label>
-              <input value={lieferant} onChange={(e) => setLieferant(e.target.value)} className={ic} style={is} placeholder="Lieferantenname" />
             </div>
             <div>
               <label className={lc} style={{ color: "var(--muted-foreground)" }}>Lieferschein-Nummer</label>
@@ -255,7 +256,7 @@ export default function NeuerWareneingangPage() {
               <table className="w-full text-sm min-w-[700px]">
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                    {["Artikel / Bezeichnung", "Bestellt", "Erhalten", "Einheit", "Status", "Notiz", ""].map((h) => (
+                    {["Artikel / Bezeichnung", "Lieferant", "Bestellt", "Erhalten", "Einheit", "Status", "Notiz", ""].map((h) => (
                       <th key={h} className="text-left pb-2 text-xs font-medium pr-2" style={{ color: "var(--muted-foreground)" }}>{h}</th>
                     ))}
                   </tr>
@@ -273,6 +274,9 @@ export default function NeuerWareneingangPage() {
                           {!p.artikel_id && (
                             <input value={p.bezeichnung} onChange={(e) => updatePosition(p.id, "bezeichnung", e.target.value)} className={`${ic} mt-1`} style={is} placeholder="Bezeichnung" />
                           )}
+                        </td>
+                        <td className="py-2 pr-2">
+                          <input value={p.lieferant} onChange={(e) => updatePosition(p.id, "lieferant", e.target.value)} className={ic} style={{ ...is, width: "110px" }} placeholder="Lieferant" />
                         </td>
                         <td className="py-2 pr-2">
                           <input type="number" min={0} value={p.bestellt} onChange={(e) => updatePosition(p.id, "bestellt", parseFloat(e.target.value) || 0)} className={ic} style={{ ...is, width: "70px" }} />

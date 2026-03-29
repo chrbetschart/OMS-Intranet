@@ -80,7 +80,7 @@ export default function WareneingangDetailPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                  {["Bezeichnung", "Bestellt", "Erhalten", "Einheit", "Status", "Notiz"].map((h) => (
+                  {["Bezeichnung", "Lieferant", "Bestellt", "Erhalten", "Einheit", "Status", "Notiz"].map((h) => (
                     <th key={h} className="text-left pb-2 text-xs font-medium pr-3" style={{ color: "var(--muted-foreground)" }}>{h}</th>
                   ))}
                 </tr>
@@ -89,6 +89,7 @@ export default function WareneingangDetailPage() {
                 {positionen.map((p) => (
                   <tr key={p.id} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td className="py-2.5 pr-3 font-medium" style={{ color: "var(--foreground)" }}>{p.bezeichnung}</td>
+                    <td className="py-2.5 pr-3 text-xs" style={{ color: "var(--muted-foreground)" }}>{p.lieferant || "—"}</td>
                     <td className="py-2.5 pr-3" style={{ color: "var(--muted-foreground)" }}>{p.bestellt}</td>
                     <td className="py-2.5 pr-3" style={{ color: "var(--foreground)" }}>{p.erhalten}</td>
                     <td className="py-2.5 pr-3" style={{ color: "var(--muted-foreground)" }}>{p.einheit}</td>

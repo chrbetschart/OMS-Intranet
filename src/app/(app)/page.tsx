@@ -64,13 +64,16 @@ export default function DashboardPage() {
 
   return (
     <div className="p-6 md:p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
-          Willkommen{profile ? `, ${profile.name}` : ""}
-        </h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--muted-foreground)" }}>
-          Ottiger Media Systeme AG — Internes System
-        </p>
+      <div className="mb-8 flex items-end justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
+            Willkommen{profile ? `, ${profile.name}` : ""}
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: "var(--muted-foreground)" }}>
+            Ottiger Media Systeme AG — Internes System
+          </p>
+        </div>
+        <img src="/oms-logo.png" alt="OMS" className="h-10 object-contain opacity-80" />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

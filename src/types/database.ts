@@ -211,6 +211,7 @@ export interface WareneingangPosition {
   wareneingang_id: string;
   artikel_id: string | null;
   bezeichnung: string;
+  lieferant: string;
   bestellt: number;
   erhalten: number;
   einheit: string;

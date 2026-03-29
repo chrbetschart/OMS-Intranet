@@ -65,7 +65,17 @@ export default function RapportDetailPage() {
         import("@react-pdf/renderer"),
         import("@/components/rapporte/rapport-pdf"),
       ]);
-      const element = RapportPDF({ rapport, technikerRows, materialRows });
+      // Fetch OMS logo as base64 for PDF embedding
+      let logoBase64: string | null = null;
+      try {
+        const res = await fetch("/oms-logo.png");
+        if (res.ok) {
+          const buf = await res.arrayBuffer();
+          const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+          logoBase64 = `data:image/png;base64,${b64}`;
+        }
+      } catch { /* logo optional */ }
+      const element = RapportPDF({ rapport, technikerRows, materialRows, logoBase64 });
       const blob = await pdf(element).toBlob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
