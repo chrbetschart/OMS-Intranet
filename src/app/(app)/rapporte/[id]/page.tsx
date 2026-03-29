@@ -71,8 +71,12 @@ export default function RapportDetailPage() {
         const res = await fetch("/logo_ottiger_media_systeme_rgb.jpg");
         if (res.ok) {
           const buf = await res.arrayBuffer();
-          const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-          logoBase64 = `data:image/jpeg;base64,${b64}`;
+          const bytes = new Uint8Array(buf);
+          let binary = "";
+          for (let i = 0; i < bytes.length; i += 8192) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+          }
+          logoBase64 = `data:image/jpeg;base64,${btoa(binary)}`;
         }
       } catch { /* logo optional */ }
       const element = RapportPDF({ rapport, technikerRows, materialRows, logoBase64 });
