@@ -116,7 +116,6 @@ export default function NeuerWareneingangPage() {
   }
 
   async function handleSave() {
-    if (!lieferant) return alert("Lieferant ist erforderlich.");
     setSaving(true);
 
     const eingangsNummer = `WE-${Date.now()}`.slice(0, 13);
